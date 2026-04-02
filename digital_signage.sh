@@ -3,8 +3,7 @@
 IP="$1"
 DEVICE="$IP:5555"
 
-APK_URL="https://github.com/lutfiihidayat/script_for_cpu/
-PROD20260025.apk"
+APK_URL="https://github.com/lutfiihidayat/script_for_cpu/PROD20260025.apk"
 APK_FILE="app.apk"
 
 PACKAGE="id.bgn.sbn.ds"
