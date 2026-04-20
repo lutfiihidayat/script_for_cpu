@@ -15,46 +15,6 @@ MAX_ID_RETRY=5
 
 echo "[ADB] Processing $DEVICE"
 
-# ================= CHECK APK =================
-NEED_DOWNLOAD=0
-
-if [ ! -f "$APK_FILE" ]; then
-    echo "[ADB] APK tidak ditemukan"
-    NEED_DOWNLOAD=1
-else
-    FILE_TYPE=$(file "$APK_FILE")
-
-    if [[ "$FILE_TYPE" != *"Android"* ]]; then
-        echo "[ADB] File bukan APK valid, re-download"
-        NEED_DOWNLOAD=1
-    else
-        echo "[ADB] APK sudah ada, skip download"
-    fi
-fi
-
-# ================= DOWNLOAD APK =================
-if [ $NEED_DOWNLOAD -eq 1 ]; then
-    echo "[ADB] Download APK..."
-    curl -L -o "$APK_FILE" "$APK_URL"
-
-    if [ ! -f "$APK_FILE" ]; then
-        echo "$DEVICE,APK_DOWNLOAD_FAILED"
-        exit
-    fi
-fi
-
-# validasi APK
-if [ ! -f "$APK_FILE" ]; then
-    echo "$DEVICE,APK_DOWNLOAD_FAILED"
-    exit
-fi
-
-FILE_TYPE=$(file "$APK_FILE")
-if [[ "$FILE_TYPE" != *"Android"* ]]; then
-    echo "$DEVICE,INVALID_APK"
-    exit
-fi
-
 # ================= CONNECT =================
 adb connect "$DEVICE" >/dev/null 2>&1
 
@@ -75,9 +35,44 @@ fi
 
 echo "[ADB] Current version: $CURRENT_VERSION"
 
-# ================= INSTALL =================
+# ================= INSTALL ONLY IF NEEDED =================
 if [ "$CURRENT_VERSION" -lt "$TARGET_VERSION_CODE" ]; then
 
+    echo "[ADB] Version < $TARGET_VERSION_CODE → Update diperlukan"
+
+    # ================= CHECK APK =================
+    NEED_DOWNLOAD=0
+
+    if [ ! -f "$APK_FILE" ]; then
+        NEED_DOWNLOAD=1
+    else
+        FILE_TYPE=$(file "$APK_FILE")
+        if [[ "$FILE_TYPE" != *"Android"* ]]; then
+            NEED_DOWNLOAD=1
+        fi
+    fi
+
+    # ================= DOWNLOAD =================
+    if [ $NEED_DOWNLOAD -eq 1 ]; then
+        echo "[ADB] Download APK..."
+        curl -L -o "$APK_FILE" "$APK_URL"
+
+        if [ ! -f "$APK_FILE" ]; then
+            echo "$DEVICE,APK_DOWNLOAD_FAILED"
+            exit
+        fi
+    else
+        echo "[ADB] APK sudah ada, skip download"
+    fi
+
+    # ================= VALIDASI APK =================
+    FILE_TYPE=$(file "$APK_FILE")
+    if [[ "$FILE_TYPE" != *"Android"* ]]; then
+        echo "$DEVICE,INVALID_APK"
+        exit
+    fi
+
+    # ================= INSTALL =================
     echo "[ADB] Installing APK..."
 
     RETRY=1
@@ -100,6 +95,9 @@ if [ "$CURRENT_VERSION" -lt "$TARGET_VERSION_CODE" ]; then
         echo "$DEVICE,INSTALL_FAILED"
         exit
     fi
+
+else
+    echo "[ADB] Version sudah terbaru → skip install"
 fi
 
 # ================= FIX PERMISSION =================
@@ -109,7 +107,6 @@ adb -s "$DEVICE" shell settings put global verifier_verify_adb_installs 0 >/dev/
 # ================= START APP =================
 adb -s "$DEVICE" shell am start -n "$ACTIVITY" >/dev/null 2>&1
 
-# tunggu app ready
 sleep 3
 
 # ================= GET DEVICE ID =================
